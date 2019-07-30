@@ -21,6 +21,12 @@ contract MyContract {
         string lastName;
     }
     
+    struct Paring {
+	address srcContract;
+	address destContract;
+	string pairName;
+    }	
+
     Person[] people;
     
     LoanDetails[] loanDetails;
