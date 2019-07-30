@@ -44,7 +44,6 @@ contract MyContract {
     
     function add(address _contract, string memory _value, address _exchangeContract) public {
         require(msg.sender == owner,'Only owner can add new supported pairing');
-        
             
         
     }
