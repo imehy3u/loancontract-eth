@@ -97,7 +97,7 @@ contract EthLoan {
 
     function addPairing(address _baseCurry, address _counterCurry, string memory _desc) public {
         require(msg.sender == owner,'Only contract owner can add new supported pairing');
-        uint noPair = pairing.length ;
+        uint noPair = pairing.length;
         if(noPair == 0 || checkExistsPairing(_baseCurry,_counterCurry) == 0){
             pair[noPair] = Pairing(_baseCurry,_counterCurry,_desc,1);
             pairing.push(noPair);
