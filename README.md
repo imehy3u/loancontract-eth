@@ -4,27 +4,27 @@ Allow to create a decentralize finance platform to allow user to be both lender 
 
 # Features
 
-**Create Loan**
+**Create Lend**
 
 Allow user to create a loan which defines the following parameter:
 - Public key address of lenders
 - enum for loan { smart contract address, amount, loan expiry }
 - enum for interest { interest percentage, interest period }
 
-**Close Loan**
+**Close Lend**
 
 Allow user to close their existing loan which defines the following parameter:
 - Public key address of lenders
 - Loan id 
 
-**Subscribe Loan**
+**Borrow Lend**
 
 Allow user to subscribe to the loan which defines the following parameter:
 - Public key address of borrower
 - Loan id
 - enum for sub-loan {smart contract address, amount}
 
-**Repay Loan**
+**Close Borrow**
 
 Allow the borrower to close their loan which defines the following parameter:
 - Public key address of borrower
