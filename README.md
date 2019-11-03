@@ -1,4 +1,4 @@
-# Ethereum based smart contract P2P loan contract
+# Ethereum based smart contract P2P loan contract -- Working in progress
 
 Allow to create a decentralize finance platform to allow user to be both lender and borrower. It also have a secondary market to allow lender or borrower trade their existing loan.
 
