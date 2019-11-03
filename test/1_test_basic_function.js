@@ -1,10 +1,12 @@
 const EthLoan = artifacts.require("EthLoan");
 
 contract("EthLoan", accounts => {
-  let instance 
-  let owner = accounts[0]
-  let account = accounts[1]
-  let blockNumber = 0
+  let instance;
+  let owner = accounts[0];
+  let account = accounts[1];
+  let blockNumber = 0;
+  let loanAddr;
+  let allLendAddr;
 
   beforeEach(async () => {
     instance = await EthLoan.deployed();
@@ -193,6 +195,84 @@ contract("EthLoan", accounts => {
     assert(errorMsg == null,'get check pairing id. Error:'+errorMsg);
     assert(check_pair == false,'check_pair should not be true ');
 
+  });
+
+  it('create new lend - owner - success', async () => {
+    let errorMsg;
+    let contract_val;
+    let temp = ""+1500000000000000000;
+    try{
+      contract_val = await instance.getContractBalance();
+      console.log('before contract bal:'+contract_val);
+      await instance.newLend(90,100, temp, 1, [0],{from: owner,value: 1.51e+18});
+      console.log('tem');
+    }catch(e){
+      errorMsg = e;
+    }
+    assert(errorMsg == null,'create new lend - owner - success. Error:'+errorMsg);
+    contract_val = await instance.getContractBalance();
+      console.log('before contract bal:'+contract_val);
+  });
+
+  it('create new lend - owner - fail', async () => {
+    let errorMsg;
+    let contract_val;
+    let temp = ""+1500000000000000000;
+    let expectError = 'Error: Returned error: VM Exception while processing transaction: revert  Message value should be more than the issue amount -- Reason given:  Message value should be more than the issue amount';
+    try{
+      contract_val = await instance.getContractBalance();
+      console.log('before contract bal:'+contract_val);
+      await instance.newLend(90,100, temp, 1, [0],{from: owner,value: 1.49e+18});
+      console.log('tem');
+    }catch(e){
+      errorMsg = e;
+    }
+    assert(errorMsg != expectError,'create new lend - owner - fail. Error:'+errorMsg);
+    contract_val = await instance.getContractBalance();
+      console.log('before contract bal:'+contract_val);
+  });
+
+  it('create new lend 2 - account - success', async () => {
+    let errorMsg;
+    let contract_val;
+    let temp = ""+1000000000000000000;
+    try{
+      contract_val = await instance.getContractBalance();
+      console.log('before contract bal:'+contract_val);
+      await instance.newLend(70,100, temp, 1, [0],{from: account,value: 1.000000001e+18});
+      console.log('tem');
+    }catch(e){
+      errorMsg = e;
+    }
+    assert(errorMsg == null,'create new lend 2 - account - success. Error:'+errorMsg);
+    contract_val = await instance.getContractBalance();
+      console.log('before contract bal:'+contract_val);
+  });
+
+  it('get all lend', async () =>{
+    allLendAddr = await instance.getAllLend();
+    console.log(allLendAddr);
+  });
+
+  it('check lend - success', async () => {
+    
+    let checkLendList = await instance.checkLend(allLendAddr[0]);
+    console.log(checkLendList);
+    assert(checkLendList[0] != '0x0000000000000000000000000000000000000000','check lend - success. No lend found');
+
+  });
+
+  it('check lend - fail', async () => {
+    let checkLendList = await instance.checkLend('0x63cE6a8f0cDB34E092CDA1374d6599fb83F3d382');
+    console.log(checkLendList);
+    assert(checkLendList[0] == '0x0000000000000000000000000000000000000000','check lend - success. No lend found');
+
+  });
+  
+  it('check active borrower - false', async () => {
+    let checkActiveBorrower = await instance.checkActiveBorrower(allLendAddr[0]);
+    console.log(checkActiveBorrower);
+    assert(checkActiveBorrower == false,'check active borrower - false. Should be false.');
   });
 
 });

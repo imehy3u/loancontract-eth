@@ -1,4 +1,4 @@
-pragma solidity ^0.5.8;
+pragma solidity ^0.5.7;
 
 contract EthLoan {
     string value;
@@ -19,7 +19,7 @@ contract EthLoan {
         address lendAddress;
         uint ltv; //1-100
         uint interest; // 100 basis point = 1 percent
-        uint issueAmt; // wei
+        uint issueAmt; // wei - 1 eth = 1,000,000,000,000,000,000 wei
         uint currentAmt; // wei
         PaymentTerm paymentTerm;
         uint endDate;
@@ -75,18 +75,6 @@ contract EthLoan {
        // pairing.push(Pairing(0x0000000000000000000000000000000000000000,0x0000000000000000000000000000000000000000,'ETH/ETH',1));
     }
 
-    function strConcat(string memory _a, string memory _b) internal returns (string memory){
-        bytes memory _ba = bytes(_a);
-        bytes memory _bb = bytes(_b);
-        string memory ab = new string(_ba.length + _bb.length);
-        bytes memory bab = bytes(ab);
-        uint k = 0;
-        for (uint i = 0; i < _ba.length; i++) bab[k++] = _ba[i];
-        for (uint i = 0; i < _bb.length; i++) bab[k++] = _bb[i];
-
-        return string(bab);
-    }
-
     function checkExistsPairing(address _baseCurry, address _counterCurry) public view returns (uint8){
         for (uint i; i < pairing.length;i++){
             if (pair[i].baseCurry==_baseCurry && pair[i].counterCurry==_counterCurry)
@@ -138,15 +126,9 @@ contract EthLoan {
         return owner;
     }
 
-    /*function getPair() public view returns(string memory){
-       string memory temp = '';
-       for(uint i = 0;i<pairing.length;i++) {
-            if(pair[i].active == 1)
-                //temp = temp.toSlice().concat(pair[i].toSlice());
-                temp = strConcat(temp,string(pair[i].));
-        }
-        return temp;
-    }*/
+    function getContractBalance() public view returns(uint){
+        return address(this).balance;
+    }
 
     function getUniqueId() public view returns (address) {
         bytes20 b = bytes20(keccak256(abi.encodePacked(msg.sender, now)));
