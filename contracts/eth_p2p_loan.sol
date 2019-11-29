@@ -1,4 +1,4 @@
-pragma solidity ^0.5.7;
+pragma solidity ^0.5.12;
 
 contract EthLoan {
     string value;
@@ -258,8 +258,8 @@ contract EthLoan {
 
     function borrowLend(address _lendId, uint _lendAmt, uint _pairingId) public payable {
         //require(msg.value > _lendAmt, 'Message value must be more than lend amount');
-        require(_lendAmt <= lends[_lendId].currentAmt && _lendAmt <= lends[_lendId].issueAmt,' Lend amount cannot be more than issue amount and current amount');
         require(lends[_lendId].lendStatus == LendStatus.ACTIVE || lends[_lendId].lendStatus == LendStatus.RUNNING, ' Lend account is inactive/suspended');
+        require(_lendAmt <= lends[_lendId].currentAmt && _lendAmt <= lends[_lendId].issueAmt,' Lend amount cannot be more than issue amount and current amount');
         require(msg.value >= calcCollatAmt(_lendAmt,lends[_lendId].ltv), 'Message value have to be more than the loan to value amount of lend amount');
         require(checkpairingExist(_lendId,_pairingId) == true, 'Pairing must exists');
         if(lends[_lendId].lendStatus == LendStatus.ACTIVE) {
@@ -317,6 +317,12 @@ contract EthLoan {
         msg.sender.transfer(borrows[_borrowId].collatAmt);
         borrows[_borrowId].collatAmt = 0;
         activeLoan[borrows[_borrowId].lendId] -= 1;
+    }
+
+    //Test
+
+    function getMsgSenderBalance(address _sender) public view returns (uint){
+        return _sender.balance;
     }
 
 }
