@@ -303,7 +303,6 @@ contract("EthLoan", accounts => {
     let errorMsg;
     let contract_val;
     
-    
     try{
       await instance.closeLend(allLendAddr[2],{from: testaccount}).then(function(tempvar){console.log(tempvar)});
     }catch(e){
@@ -370,6 +369,14 @@ contract("EthLoan", accounts => {
   });
 
   it('check interest amount', async () => {
+    let borrowAmt; 
+    try {
+      borrowAmt = await instance.interestAmt(152,1,"1000000000000000000"); //(0.0152 * round(30/360,5dp) * 1000000000000000000) = 1266160000000000
+      console.log(borrowAmt);
+    }catch(e){
+      borrowAmt = e;
+    }
+    assert(borrowAmt == 1266160000000000,'check interest amount');
     
   });
 

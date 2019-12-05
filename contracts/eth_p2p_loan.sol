@@ -68,10 +68,12 @@ contract EthLoan {
     uint16 dayCount = 360;
     uint lateCharge = 200; // 200 basis point = 2 percent
     uint epochDay = 86400; // 60 x 60 x 24 = Epoch day
+    uint precision;
 
     constructor() public {
         value = "constructor value";
         owner = msg.sender;
+        precision = 4;
        // pairing.push(Pairing(0x0000000000000000000000000000000000000000,0x0000000000000000000000000000000000000000,'ETH/ETH',1));
     }
 
@@ -277,12 +279,22 @@ contract EthLoan {
     }
 
     //Calculate interest - Start
+    function division(uint _numerator, uint _denominator) public view returns(uint) {
 
+         // caution, check safe-to-multiply here
+        uint numerator  = _numerator * 10 ** (precision+1);
+        // with rounding of last digit
+        uint quotient =  ((numerator / _denominator) + 5) / 10;
+        return quotient;
+    }
+    
     function interestAmt(uint _interest,uint _payTerm,uint _borrowAmt) public view returns (uint) {
-        if(_borrowAmt <= 0)
+        if(_borrowAmt == 0) {
             return 0;
+        }
         uint period = getPaymentDay(_payTerm);
-        return uint(uint(_interest) * (period/dayCount) * uint(_borrowAmt));
+        uint calcInterest = uint( division(_interest,100) * division(period,dayCount) * _borrowAmt/10000000000);
+        return calcInterest ;
     }
 
     function lateInterestAmt(uint _interest,uint _payTerm,uint _borrowAmt,uint _lastPaymentDate) public view returns(uint) {
