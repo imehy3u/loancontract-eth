@@ -8,9 +8,10 @@ contract("EthLoan", accounts => {
   let blockNumber = 0;
   let loanAddr;
   let allLendAddr;
+  let allBorrowAddr;
 
   beforeEach(async () => {
-    instance = await EthLoan.deployed();
+    instance = await EthLoan.at("0xf371c631e9f78b4636AA5048Bc858aCD444a32f3");
   })
   
   it("should acccess to contract with block number available.", async () => {
@@ -201,11 +202,11 @@ contract("EthLoan", accounts => {
   it('create new lend - owner - success', async () => {
     let errorMsg;
     let contract_val;
-    let temp = ""+1500000000000000000;
+    let temp = ""+2500000000000000000;
     try{
       contract_val = await instance.getContractBalance();
       console.log('before contract bal:'+contract_val);
-      await instance.newLend(90,100, temp, 1, [0],{from: owner,value: 1.51e+18});
+      await instance.newLend(90,100, temp, 1, [0],{from: owner,value: 2.51e+18});
     }catch(e){
       errorMsg = e;
     }
@@ -234,11 +235,11 @@ contract("EthLoan", accounts => {
   it('create new lend 2 - account - success', async () => {
     let errorMsg;
     let contract_val;
-    let temp = ""+1000000000000000000;
+    let temp = ""+2000000000000000000;
     try{
       contract_val = await instance.getContractBalance();
       console.log('before contract bal:'+contract_val);
-      await instance.newLend(70,100, temp, 1, [0],{from: account,value: 1.000000001e+18});
+      await instance.newLend(70,100, temp, 1, [0],{from: account,value: 2.000000001e+18});
     }catch(e){
       errorMsg = e;
     }
@@ -270,7 +271,7 @@ contract("EthLoan", accounts => {
   it('check lend - success', async () => {
     
     let checkLendList = await instance.checkLend(allLendAddr[0]);
-    //console.log(checkLendList);
+    console.log(checkLendList);
     assert(checkLendList[0] != '0x0000000000000000000000000000000000000000','check lend - success. No lend found');
 
   });
@@ -317,7 +318,7 @@ contract("EthLoan", accounts => {
     let contract_val;
     let temp = ""+1000000000000000000;
     try{
-      await instance.borrowLend(allLendAddr[0],temp,0,{from: account,value: 0.90000000e+18});
+      await instance.borrowLend(allLendAddr[0],temp,0,0,{from: account,value: 0.90000000e+18});
 
     }catch(e){
       errorMsg = e;
@@ -331,7 +332,7 @@ contract("EthLoan", accounts => {
     let contract_val;
     let temp = ""+1000000000000000000;
     try{
-      await instance.borrowLend(allLendAddr[2],temp,0,{from: account,value: 1.10000000e+18});
+      await instance.borrowLend(allLendAddr[2],temp,0,0,{from: account,value: 1.10000000e+18});
 
     }catch(e){
       errorMsg = e;
@@ -345,7 +346,7 @@ contract("EthLoan", accounts => {
     let contract_val;
     let temp = ""+2000000000000000000;
     try{
-      await instance.borrowLend(allLendAddr[0],temp,0,{from: account,value: 2.10000000e+18});
+      await instance.borrowLend(allLendAddr[0],temp,0,0,{from: account,value: 2.10000000e+18});
 
     }catch(e){
       errorMsg = e;
@@ -359,7 +360,7 @@ contract("EthLoan", accounts => {
     let contract_val;
     let temp = ""+800000000000000000;
     try{
-      await instance.borrowLend(allLendAddr[0],temp,0,{from: account,value: 1.0000001e+18});
+      await instance.borrowLend(allLendAddr[0],temp,0,0,{from: account,value: 1.0000001e+18});
 
     }catch(e){
       errorMsg = e;
@@ -369,15 +370,96 @@ contract("EthLoan", accounts => {
   });
 
   it('check interest amount', async () => {
-    let borrowAmt; 
+    let intAmt; 
     try {
-      borrowAmt = await instance.interestAmt(152,1,"1000000000000000000"); //(0.0152 * round(30/360,5dp) * 1000000000000000000) = 1266160000000000
-      console.log(borrowAmt);
+      intAmt = await instance.interestAmt(152,1,"1000000000000000000"); //(0.0152 * round(30/360,5dp) * 1000000000000000000) = 1266160000000000
     }catch(e){
-      borrowAmt = e;
+      intAmt = e;
     }
-    assert(borrowAmt == 1266160000000000,'check interest amount');
+    assert(intAmt == 1266160000000000,'check interest amount');
     
   });
 
+  it('check late interest amount', async () => {
+    let lateAmt; 
+    try {
+      lateAmt = await instance.lateInterestAmt(152,1,"1000000000000000000",1572677350,1575701350); //((0.0152 + 0.02) * round(5/360,5dp) * 1000000000000000000) = 489280000000000
+    }catch(e){
+      lateAmt = e;
+    }
+    assert(lateAmt == 489280000000000,'check late interest amount');
+  });
+
+  it('check total interest amount', async () => {
+    let totalIntAmt; 
+    try {
+      totalIntAmt = await instance.totalInterestAmt(152,1,"1000000000000000000",1572677350,1575701350); //(0.0152 * round(30/360,5dp) * 1000000000000000000) + ((0.0152 + 0.02) * round(5/360,5dp) * 1000000000000000000) = 1755440000000000
+    }catch(e){
+      totalIntAmt = e;
+    }
+    assert(totalIntAmt == 1755440000000000,'check total interest amount');
+  });
+
+  it('get all borrow', async () =>{
+    allBorrowAddr = await instance.getAllBorrow();
+    await console.log(allBorrowAddr);
+  });
+
+  it('check pay interest', async () => {
+    let errorMsg = null;
+    let contract_val;
+    let temp = ""+800000000000000000;
+    try{
+      await instance.borrowLend(allLendAddr[0],temp,0,1572677350,{from: testaccount,value: 1.0000001e+18});
+
+    }catch(e){
+      errorMsg = e;
+    }
+    //console.log(errorMsg)
+    assert(errorMsg == null,'check borrow lend. Error:'+errorMsg);
+    allBorrowAddr = await instance.getAllBorrow();
+    try{
+      errorMsg = null;
+      await instance.payInterest(allBorrowAddr[1],{from: account,value: 1755440000000000})
+    }catch(e) {
+      errorMsg = e;
+    }
+    assert(errorMsg != null, 'check pay interest');
+
+    try{
+      errorMsg = null;
+      await instance.payInterest(allBorrowAddr[1],{from: testaccount,value: 1755440000000000})
+    }catch(e) {
+      errorMsg = e;
+    }
+    //assert(errorMsg == null, 'check pay interest:'+errorMsg);
+
+
+  });
+
+  it('check close borrow', async () => {
+    let errorMsg = null;
+    errorMsg = await instance.getBorrowInfo(allBorrowAddr[1]);
+    console.log(errorMsg);
+  });
+
+  it('check close borrow', async () => {
+    let errorMsg = null;
+    try{
+      await instance.closeBorrow(allBorrowAddr[1],{from: account});
+    }catch(e){
+      errorMsg = e;
+    }
+    assert(errorMsg != null, 'check close borrow - false');
+    try{
+      errorMsg = null;
+      await instance.closeBorrow(allBorrowAddr[1],{from: testaccount});
+    }catch(e){
+      errorMsg = e;
+    }
+    assert(errorMsg == null, 'check close borrow - true:'+errorMsg);
+
+  });
+
 });
+

@@ -1,4 +1,5 @@
 pragma solidity ^0.5.12;
+pragma experimental ABIEncoderV2;
 
 contract EthLoan {
     string value;
@@ -50,7 +51,6 @@ contract EthLoan {
         TransactionType transactionType;
         uint transactionAmt;
         uint pairing;
-        //Pairing pairing;
     }
 
     mapping (address => Lend) lends;
@@ -76,6 +76,12 @@ contract EthLoan {
         precision = 4;
        // pairing.push(Pairing(0x0000000000000000000000000000000000000000,0x0000000000000000000000000000000000000000,'ETH/ETH',1));
     }
+
+    event newLendCreated(Lend);
+    event newBorrowCreated(Borrow);
+    event interestPayment(address _lendId,address _borrowId);
+    event closeLendCreated(address _lendId, uint _lendStatus);
+    event closeBorrowCreated(address _borrowId, uint _borrowStatus);
 
     function checkExistsPairing(address _baseCurry, address _counterCurry) public view returns (uint8){
         for (uint i; i < pairing.length;i++){
@@ -121,7 +127,7 @@ contract EthLoan {
     }
 
     function getBlock() public view returns (uint) {
-        return now;
+        return block.timestamp;
     }
 
     function getOwner() public view returns(address){
@@ -158,22 +164,28 @@ contract EthLoan {
         return check;
     }
 
-    function newLend(uint _ltv,uint _interest, uint _issueAmt, PaymentTerm _paymentTerm, uint[] memory _pairingList ) public payable {
+    function newLend(uint _ltv,uint _interest, uint _issueAmt, uint _paymentTerm, uint[] memory _pairingList ) public payable {
         require(msg.value > _issueAmt,' Message value should be more than the issue amount');
         require(_ltv < 100, ' LTV should be less than and equal 100');
         require(checkPairing(_pairingList) == true, 'Invalid pairing');
+        require(_paymentTerm >= 0 && _paymentTerm<=3, 'Invalid Payment Term');
         address tempAddr = getUniqueId();
 
-        lends[tempAddr] = Lend(msg.sender,_ltv,_interest,_issueAmt,_issueAmt,_paymentTerm,2147483647,now,_pairingList,LendStatus.ACTIVE);
+        lends[tempAddr] = Lend(msg.sender,_ltv,_interest,_issueAmt,_issueAmt,PaymentTerm(_paymentTerm),2147483647,now,_pairingList,LendStatus.ACTIVE);
 
         lendList.push(tempAddr);
         activeLoan[tempAddr] = 0;
+        emit newLendCreated(lends[tempAddr]);
     }
 
-    function checkLend(address _address) public view returns (address, uint,uint,uint,uint,uint,uint,uint,uint[] memory) {
-        //string memory retJSON = '{ '+'';
+    function checkLend(address _address) public view returns (address, uint,uint,uint,uint,uint,uint,uint,uint[] memory,uint) {
         Lend memory tempLend = lends[_address];
-        return (tempLend.lendAddress,tempLend.ltv,tempLend.interest,tempLend.issueAmt,tempLend.currentAmt,uint(tempLend.paymentTerm),tempLend.endDate,tempLend.startDate,tempLend.pairing);
+        return (tempLend.lendAddress,tempLend.ltv,tempLend.interest,tempLend.issueAmt,tempLend.currentAmt,uint(tempLend.paymentTerm),
+            tempLend.endDate,tempLend.startDate,tempLend.pairing,uint(tempLend.lendStatus));
+    }
+
+    function getLendInfo(address _address) external view returns(Lend memory) {
+        return lends[_address];
     }
 
     function getAllLend() external view returns (address[] memory) {
@@ -206,6 +218,8 @@ contract EthLoan {
             msg.sender.transfer(lends[_lendId].currentAmt);
             lends[_lendId].currentAmt = 0;
         }
+
+        emit closeLendCreated(_lendId,uint(lends[_lendId].lendStatus));
     }
 
     function checkpairingExist(address _lendId,uint _pairingId)  private view returns (bool) {
@@ -231,7 +245,7 @@ contract EthLoan {
         uint nextCycle = 0;
         do {
            nextCycle = (calcNextDay(_epoch) + (convertDayToEpoch(_period)));
-        }while(nextCycle <= calcStartDay(now));
+        }while(nextCycle <= calcStartDay(_epoch));
         return nextCycle;
     }
 
@@ -258,7 +272,7 @@ contract EthLoan {
         return (10000/_ltv * _lendAmt)/100;
     }
 
-    function borrowLend(address _lendId, uint _lendAmt, uint _pairingId) public payable {
+    function borrowLend(address _lendId, uint _lendAmt, uint _pairingId, uint _epoch) public payable {
         //require(msg.value > _lendAmt, 'Message value must be more than lend amount');
         require(lends[_lendId].lendStatus == LendStatus.ACTIVE || lends[_lendId].lendStatus == LendStatus.RUNNING, ' Lend account is inactive/suspended');
         require(_lendAmt <= lends[_lendId].currentAmt && _lendAmt <= lends[_lendId].issueAmt,' Lend amount cannot be more than issue amount and current amount');
@@ -270,71 +284,96 @@ contract EthLoan {
 
         lends[_lendId].currentAmt -= _lendAmt;
         msg.sender.transfer(_lendAmt);
-        uint current = now;
+        uint current = block.timestamp;
+        if(_epoch > 0 && _epoch < current)
+            current = _epoch;
         address tempAddr = getUniqueId();
-        borrows[tempAddr] = Borrow(msg.sender,1,_lendId,_lendAmt,_pairingId,BorrowStatus.ACTIVE,current,2147483647,current,calcNextCycle(current,getPaymentDay(uint(lends[_lendId].paymentTerm))),calcCollatAmt(_lendAmt,lends[_lendId].ltv));
+        borrows[tempAddr] = Borrow(msg.sender,1,_lendId,_lendAmt,_pairingId,BorrowStatus.ACTIVE,current,2147483647,current,
+        calcNextCycle(current,getPaymentDay(uint(lends[_lendId].paymentTerm))),calcCollatAmt(_lendAmt,lends[_lendId].ltv));
 
         borrowList.push(tempAddr);
         activeLoan[tempAddr] += 1;
+
+        emit newBorrowCreated(borrows[tempAddr]);
     }
 
     //Calculate interest - Start
     function division(uint _numerator, uint _denominator) public view returns(uint) {
 
          // caution, check safe-to-multiply here
-        uint numerator  = _numerator * 10 ** (precision+1);
+        uint numerator = ( _numerator * 10 ** ( precision + 1 ));
         // with rounding of last digit
-        uint quotient =  ((numerator / _denominator) + 5) / 10;
+        uint quotient = ((numerator / _denominator) + 5) / 10;
         return quotient;
     }
-    
+
     function interestAmt(uint _interest,uint _payTerm,uint _borrowAmt) public view returns (uint) {
         if(_borrowAmt == 0) {
             return 0;
         }
         uint period = getPaymentDay(_payTerm);
-        uint calcInterest = uint( division(_interest,100) * division(period,dayCount) * _borrowAmt/10000000000);
+        uint calcInterest = uint((division(_interest,100) * division(period,dayCount) * _borrowAmt/10000000000));
         return calcInterest ;
     }
 
-    function lateInterestAmt(uint _interest,uint _payTerm,uint _borrowAmt,uint _lastPaymentDate) public view returns(uint) {
+    function lateInterestAmt(uint _interest,uint _payTerm,uint _borrowAmt,uint _lastPaymentDate, uint _currentEpoch) public view returns(uint) {
         uint period = convertDayToEpoch(getPaymentDay(_payTerm));
-
-        if((_lastPaymentDate + period) > now ) {
-            uint accurIntrDay = now - _lastPaymentDate + period;
-            return uint((accurIntrDay/dayCount) * (_interest + lateCharge) * uint(_borrowAmt));
+        uint currentEpoch;
+        if(_currentEpoch == 0)
+            currentEpoch = block.timestamp;
+        else
+            currentEpoch = _currentEpoch;
+        if((_lastPaymentDate + period) < currentEpoch ) {
+            uint accurIntrDay = currentEpoch - _lastPaymentDate - period;
+            uint numLateDays = accurIntrDay / 86400;
+            uint lateFee = uint(division(numLateDays,dayCount) * division(_interest+lateCharge,100) * _borrowAmt/ 10000000000);
+            return lateFee;
         }
         return 0;
     }
 
-    function totalInterestAmt(uint _interest,uint _payTerm,uint _borrowAmt,uint _lastPaymentDate) public view returns (uint) {
-        return (interestAmt(_interest,_payTerm,_borrowAmt) + lateInterestAmt(_interest,_payTerm,_borrowAmt,_lastPaymentDate));
+    function totalInterestAmt(uint _interest,uint _payTerm,uint _borrowAmt,uint _lastPaymentDate, uint _current) public view returns (uint) {
+        return (interestAmt(_interest,_payTerm,_borrowAmt) + lateInterestAmt(_interest,_payTerm,_borrowAmt,_lastPaymentDate,_current));
     }
 
     //Calculate interest - End
 
+    function getAllBorrow() external view returns (address[] memory) {
+        return borrowList;
+    }
+
+    function getBorrowInfo(address _borrowId) external view returns (Borrow memory) {
+      return (borrows[_borrowId]);
+    }
+
+    /*function getBorrowAllInfo() external view returns(Borrows[] memory) {
+      return borrows;
+    }*/
+
     function payInterest(address _borrowId) public payable {
         require(borrows[_borrowId].borrowStatus == BorrowStatus.ACTIVE, 'Invalid borrow');
-        require(msg.value >= totalInterestAmt(lends[borrows[_borrowId].lendId].interest,uint(lends[borrows[_borrowId].lendId].paymentTerm),borrows[_borrowId].borrowAmt,borrows[_borrowId].lastPaymentDate),'Insucifficent amount');
-        uint current = now;
+        uint current = block.timestamp;
+        require(msg.value >= totalInterestAmt(lends[borrows[_borrowId].lendId].interest,uint(lends[borrows[_borrowId].lendId].paymentTerm),
+        borrows[_borrowId].borrowAmt,borrows[_borrowId].lastPaymentDate,current),'Insucifficent amount');
+        require(msg.sender == borrows[_borrowId].borrowAddress,'Only borrow owner can pay the interest.');
+
         uint nextPayDate = borrows[_borrowId].nextPaymentDateBy;
         borrows[_borrowId].lastPaymentDate = current;
         borrows[_borrowId].nextPaymentDateBy = calcNextCycle(nextPayDate,uint(lends[borrows[_borrowId].lendId].paymentTerm));
+
+        emit interestPayment(borrows[_borrowId].lendId,_borrowId);
     }
 
     function closeBorrow(address _borrowId) public payable {
         require(msg.sender == borrows[_borrowId].borrowAddress,' Must be borrows borrower');
         require(borrows[_borrowId].collatAmt > 0,' Collateral Amount no more');
-        require(activeLoan[borrows[_borrowId].lendId] > 0,' No active loan');
+        //require(activeLoan[borrows[_borrowId].lendId] > 0,' No active loan');
         msg.sender.transfer(borrows[_borrowId].collatAmt);
         borrows[_borrowId].collatAmt = 0;
+        borrows[_borrowId].borrowStatus = BorrowStatus.INACTIVE;
         activeLoan[borrows[_borrowId].lendId] -= 1;
-    }
 
-    //Test
-
-    function getMsgSenderBalance(address _sender) public view returns (uint){
-        return _sender.balance;
+        emit closeBorrowCreated(_borrowId, uint(borrows[_borrowId].borrowStatus));
     }
 
 }
